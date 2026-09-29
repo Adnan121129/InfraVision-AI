@@ -1,0 +1,165 @@
+# InfraVision AI - local / single-host deployment
+#
+#   cp .env.example .env      # then adjust secrets
+#   docker compose up --build
+#
+# Dashboard: http://localhost:8080   API docs: http://localhost:8080/api/docs/
+# MinIO console: http://localhost:9001
+
+x-backend-env: &backend-env
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  REDIS_URL: redis://redis:6379/0
+  USE_S3: "true"
+  AWS_S3_ENDPOINT_URL: http://minio:9000
+
+x-backend-common: &backend-common
+  build:
+    context: .
+    dockerfile: docker/backend.Dockerfile
+  image: infravision/backend:local
+  env_file: .env
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: .env   # POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Upstream MinIO no longer publishes community images; pgsty/minio is a maintained
+  # drop-in build (same entrypoint, bundles mc). Override with MINIO_IMAGE if needed.
+  minio:
+    image: ${MINIO_IMAGE:-pgsty/minio:RELEASE.2026-08-04T00-00-00Z}
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    env_file: .env   # MINIO_ROOT_USER / MINIO_ROOT_PASSWORD
+    ports:
+      - "9000:9000"   # S3 API (presigned image URLs are served from here)
+      - "9001:9001"   # web console
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Creates the bucket and a least-privilege application user (the API never uses root credentials).
+  minio-init:
+    image: ${MINIO_IMAGE:-pgsty/minio:RELEASE.2026-08-04T00-00-00Z}
+    depends_on:
+      minio:
+        condition: service_healthy
+    # Secrets come only from .env (never from exported shell variables such as a
+    # developer's real AWS_ACCESS_KEY_ID), so the backend and MinIO always agree.
+    env_file: .env
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        mc mb --ignore-existing "local/$$AWS_STORAGE_BUCKET_NAME"
+        mc anonymous set none "local/$$AWS_STORAGE_BUCKET_NAME"
+        mc admin user add local "$$AWS_ACCESS_KEY_ID" "$$AWS_SECRET_ACCESS_KEY"
+        mc admin policy attach local readwrite --user "$$AWS_ACCESS_KEY_ID" || true
+        echo "MinIO bucket and application user ready"
+    restart: "no"
+
+  backend:
+    <<: *backend-common
+    environment:
+      <<: *backend-env
+      RUN_MIGRATIONS: "true"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+
+  celery-worker:
+    <<: *backend-common
+    command: ["celery", "-A", "config", "worker", "-Q", "default", "-n", "default@%h", "--concurrency", "2", "--loglevel", "INFO"]
+    environment:
+      <<: *backend-env
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A config inspect ping -d default@$$HOSTNAME --timeout 10 > /dev/null"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  celery-beat:
+    <<: *backend-common
+    command: ["celery", "-A", "config", "beat", "--loglevel", "INFO", "--schedule", "/tmp/celerybeat-schedule"]
+    environment:
+      <<: *backend-env
+    healthcheck:
+      disable: true
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  ml-worker:
+    build:
+      context: .
+      dockerfile: docker/ml-worker.Dockerfile
+      args:
+        INSTALL_PYTORCH: ${INSTALL_PYTORCH:-true}
+    image: infravision/ml-worker:local
+    env_file: .env
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+      ML_WORKER_ROLE: inference
+    volumes:
+      - ./ml-worker/models:/models:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    image: infravision/frontend:local
+    restart: unless-stopped
+    environment:
+      BACKEND_UPSTREAM: backend:8000
+    env_file: .env   # PUBLIC_STORAGE_ORIGIN
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:

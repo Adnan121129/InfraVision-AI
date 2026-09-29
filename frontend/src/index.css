@@ -1,0 +1,165 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------------
+   InfraVision design tokens (dark-first). Chart series colours are the
+   validated dark categorical steps; status colours are a fixed palette that
+   is always paired with a text label or icon.
+   ------------------------------------------------------------------------ */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-canvas: #070b14;
+  --color-surface: #0f1726;
+  --color-surface-2: #141f33;
+  --color-surface-3: #1b2842;
+  --color-line: rgb(148 163 184 / 0.12);
+  --color-line-strong: rgb(148 163 184 / 0.22);
+  --color-grid: #1e2a3f;
+
+  --color-ink: #e8eef8;
+  --color-ink-2: #a7b3c7;
+  --color-ink-3: #74829a;
+
+  --color-accent: #38bdf8;
+  --color-accent-strong: #0ea5e9;
+  --color-brand: #3987e5;
+
+  --color-good: #0ca30c;
+  --color-good-ink: #4ade80;
+  --color-warn: #fab219;
+  --color-serious: #ec835a;
+  --color-critical: #d03b3b;
+  --color-critical-ink: #f87171;
+
+  --color-series-1: #3987e5;
+  --color-series-2: #d95926;
+  --color-series-3: #199e70;
+  --color-series-4: #c98500;
+
+  --animate-fade-in: fade-in 0.35s ease-out both;
+  --animate-slide-up: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-scan: scan 3.2s ease-in-out infinite;
+  --animate-pulse-soft: pulse-soft 2s ease-in-out infinite;
+  --animate-flow: flow 2.4s linear infinite;
+  --animate-toast-in: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-drawer-in: drawer-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes scan {
+    0%, 100% { transform: translateY(0%); opacity: 0.1; }
+    10% { opacity: 0.9; }
+    50% { transform: translateY(calc(100% - 2px)); opacity: 0.9; }
+    60% { opacity: 0.1; }
+  }
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+  @keyframes flow {
+    from { stroke-dashoffset: 24; }
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes drawer-in {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  ::selection {
+    background: rgb(56 189 248 / 0.3);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  * {
+    scrollbar-color: #26344f transparent;
+    scrollbar-width: thin;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-xl border border-line bg-surface;
+  }
+  .panel-raised {
+    @apply rounded-xl border border-line bg-surface-2;
+  }
+  .glass {
+    background: linear-gradient(180deg, rgb(20 31 51 / 0.72), rgb(15 23 38 / 0.72));
+    backdrop-filter: blur(14px);
+  }
+  .label-eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-3;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .grid-backdrop {
+    background-image:
+      linear-gradient(rgb(148 163 184 / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(148 163 184 / 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+}
+
+/* Leaflet dark theming */
+.leaflet-container {
+  background: #0b1220;
+  font-family: var(--font-sans);
+}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--color-surface-2);
+  color: var(--color-ink);
+  border: 1px solid var(--color-line-strong);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+}
+.leaflet-popup-content {
+  margin: 12px 14px;
+}
+.leaflet-container a.leaflet-popup-close-button {
+  color: var(--color-ink-3);
+}
+.leaflet-control-zoom a {
+  background: var(--color-surface-2) !important;
+  color: var(--color-ink) !important;
+  border-color: var(--color-line-strong) !important;
+}
+.leaflet-control-attribution {
+  background: rgb(7 11 20 / 0.7) !important;
+  color: var(--color-ink-3) !important;
+}
+.leaflet-control-attribution a {
+  color: var(--color-ink-2) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
