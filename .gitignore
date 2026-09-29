@@ -1,0 +1,32 @@
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.sqlite3
+backend/staticfiles/
+backend/media/*
+!backend/media/.gitkeep
+
+# ML artifacts (mounted into the worker, never committed)
+ml-worker/models/*
+!ml-worker/models/.gitkeep
+*.pt
+*.pth
+*.onnx
+
+# Node
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

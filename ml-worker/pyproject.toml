@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "infravision-ml"
+version = "1.0.0"
+description = "Framework-agnostic structural defect inference for InfraVision AI"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.0,<2.3",
+    "opencv-python-headless>=4.10,<4.13",
+]
+
+[project.optional-dependencies]
+pytorch = ["torch>=2.4", "torchvision>=0.19"]
+timm = ["timm>=1.0"]
+test = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+include = ["infravision_ml*"]
